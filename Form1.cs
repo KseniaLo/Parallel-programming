@@ -1,9 +1,9 @@
 ﻿using System;
-using System.Drawing;
+using System.Collections.Generic;
 using System.Windows.Forms;
 using System.Threading;
 
-namespace Lab_3_1
+namespace Lab_3_2
 {
     public partial class Form1 : Form
     {
@@ -11,275 +11,87 @@ namespace Lab_3_1
         {
             InitializeComponent();
         }
-        public static Graphics gr1;
-        Thread ph1, ph2, ph3, ph4, ph5;
-        
-        // Start dining.
+        Thread t1, t2;
+        public static bool fin = false;
+        public static Queue<int> list = new Queue<int>();
+        public static int full = 0;
+
+        // Find all palindrom primes.
         private void button1_Click(object sender, EventArgs e)
         {
-            gr1 = pictureBox1.CreateGraphics();
-            CreateTable();
+            int n = Convert.ToInt32(textBox1.Text); // The right-hand end of the search term.
 
-            Philosophers phils = new Philosophers();
-            ph1= new Thread(Phil1);
-            ph2 = new Thread(Phil2);
-            ph3 = new Thread(Phil3);
-            ph4 = new Thread(Phil4);
-            ph5 = new Thread(Phil5);
+            // We will simplify the problem starting with searching of primes.
+            // Then we will check the found prime numbers on the palindrome.
+            t1 = new Thread(SearchOfPrimes);
+            t2 = new Thread(SearchOfPalindrome);
 
-            ph1.Start(phils);
-            ph2.Start(phils);
-            ph3.Start(phils);
-            ph4.Start(phils);
-            ph5.Start(phils);
+            t1.Start(n);
+            t2.Start(richTextBox1);
         }
 
-        // Creating of the table and markers of philosophers.
-        public void CreateTable()
+        static void SearchOfPrimes(Object x)
         {
-            gr1.FillEllipse(Brushes.White, pictureBox1.Width/2 - 125, pictureBox1.Height/2 - 125, 250, 250);
-            gr1.FillEllipse(Brushes.Red, pictureBox1.Width / 2 - 25, pictureBox1.Height / 2 - 110, 50, 50);
-            gr1.FillEllipse(Brushes.Red, pictureBox1.Width / 2 - 80, pictureBox1.Height / 2 + 40, 50, 50);
-            gr1.FillEllipse(Brushes.Red, pictureBox1.Width / 2 - 100, pictureBox1.Height / 2 - 50, 50, 50);
-            gr1.FillEllipse(Brushes.Red, pictureBox1.Width / 2 + 35, pictureBox1.Height / 2 + 40, 50, 50);
-            gr1.FillEllipse(Brushes.Red, pictureBox1.Width / 2 + 55, pictureBox1.Height / 2 - 50, 50, 50);
-        }
+            int n = (int)x;
+            fin = false;
+            bool[] flags = new bool[n];
 
-        // The behaviour of the first philosopher.
-        public static void Phil1(Object x)
-        {
-            Philosophers phil = (Philosophers)x;
-            Object thisLock = new Object();
+            for (int i = 0; i < flags.Length; i++)
+                flags[i] = true;
 
-            while(true)
+            for (int i = 2; i < flags.Length; i++)
             {
-                // Wait until the right-hand side fork is available.
-                while (phil.Forks[4]) ;
-
-                // Take the fork.
-                lock (thisLock)
+                // According to the task we limit
+                // the ammount of places in queue with 3.
+                if (flags[i] == true)
                 {
-                    phil.Forks[4] = true;
+                    // Wait until there is a space in the queue.
+                    while (full == 3) { };
+                    lock (list)
+                    {
+                        // Put the found element to the queue.
+                        list.Enqueue(i);
+                        full++;
+                    }
+                    for (int j = 2 * i; j < flags.Length; j += i)// For all values ​​that are a multiple of i.
+                        flags[j] = false;
+                }
+            }
+            // The flag showing the end of the ammount of elements.
+            fin = true;
+        }
+        
+        static void SearchOfPalindrome(Object x)
+        {
+            string tmp;
+            RichTextBox richTextBox = (RichTextBox)x;
+            richTextBox.Clear();
+
+            // Wait until there is smth in the queue.
+            while (full==0) { };
+            while (list.Count != 0)
+            {
+                lock (list)
+                {
+                    tmp = list.Dequeue().ToString();
+                    full--;
                 }
 
-                // Wait until the left-hand side fork is available.
-                while (phil.Forks[0]) ;
+                // Check on being a palindrome.
+                bool flag = true;
+                for (int i = 0; i < tmp.Length / 2; i++)
+                    if (tmp[i] != tmp[tmp.Length - i - 1])
+                    {
+                        flag = false;
+                        break;
+                    }
 
-                lock (thisLock)
-                {
-                    phil.Forks[0] = true;
-                }
+                if (flag)
+                    richTextBox.AppendText(tmp + "\n");
 
-                // Showing the eateng process with assigning a green color to the indicator.
-                lock (gr1)
-                    gr1.FillEllipse(Brushes.Green, phil.phil1.X, phil.phil1.Y, 50, 50);
-                // Duration of eating process.
-                Thread.Sleep(2000);
-
-                // Leaving forks.
-                lock(thisLock)
-                {
-                    phil.Forks[4] = false;
-                    phil.Forks[0] = false;
-                }
-
-                // Showing the thinking process with assigning a yellow color to the indicator.
-                lock (gr1)
-                    gr1.FillEllipse(Brushes.Yellow, phil.phil1.X, phil.phil1.Y, 50, 50);
-                // Duration of thinking process.
-                Thread.Sleep(2000);
-
-                // The philosopher is ready to wait for his turn again. Setting a red color to the indicator.
-                lock (gr1)
-                    gr1.FillEllipse(Brushes.Red, phil.phil1.X, phil.phil1.Y, 50, 50);
+                // If there are items to check but they are not in the queue. 
+                while (full == 0&&!fin) { };
             }
         }
-
-        // Behaviour of the rest is similar.
-
-        public static void Phil2(Object x)
-        {
-            Philosophers phil = (Philosophers)x;
-            Object thisLock = new Object();
-            while (true)
-            {
-                while (phil.Forks[1]) ;
-                lock (thisLock)
-                {
-                    phil.Forks[1] = true;
-                }
-
-                while (phil.Forks[0]) ;
-                lock (thisLock)
-                {
-                    phil.Forks[0] = true;
-                }
-
-                lock (gr1)
-                    gr1.FillEllipse(Brushes.Green, phil.phil2.X, phil.phil2.Y, 50, 50);
-                Thread.Sleep(2000);
-
-                lock (thisLock)
-                {
-                    phil.Forks[1] = false;
-                }
-
-                lock (thisLock)
-                {
-                    phil.Forks[0] = false;
-                }
-
-                lock (gr1)
-                    gr1.FillEllipse(Brushes.Yellow, phil.phil2.X, phil.phil2.Y, 50, 50);
-                Thread.Sleep(2000);
-
-                lock (gr1)
-                    gr1.FillEllipse(Brushes.Red, phil.phil2.X, phil.phil2.Y, 50, 50);
-            }
-        }
-
-        public static void Phil3(Object x)
-        {
-            Philosophers phil = (Philosophers)x;
-            Object thisLock = new Object();
-            while (true)
-            {
-                while (phil.Forks[1]) ;
-                lock (thisLock)
-                {
-                    phil.Forks[1] = true;
-                }
-
-                while (phil.Forks[2]) ;
-                lock (thisLock)
-                {
-                    phil.Forks[2] = true;
-                }
-
-                lock (gr1)
-                    gr1.FillEllipse(Brushes.Green, phil.phil3.X, phil.phil3.Y, 50, 50);
-                Thread.Sleep(2000);
-
-                lock (thisLock)
-                {
-                    phil.Forks[1] = false;
-                }
-
-                lock (thisLock)
-                {
-                    phil.Forks[2] = false;
-                }
-
-                lock (gr1)
-                    gr1.FillEllipse(Brushes.Yellow, phil.phil3.X, phil.phil3.Y, 50, 50);
-                Thread.Sleep(2000);
-
-                lock (gr1)
-                    gr1.FillEllipse(Brushes.Red, phil.phil3.X, phil.phil3.Y, 50, 50);
-            }
-        }
-
-        public static void Phil4(Object x)
-        {
-            Philosophers phil = (Philosophers)x;
-            Object thisLock = new Object();
-            while (true)
-            {
-                while (phil.Forks[3]) ;
-                lock (thisLock)
-                {
-                    phil.Forks[3] = true;
-                }
-
-                while (phil.Forks[2]) ;
-                lock (thisLock)
-                {
-                    phil.Forks[2] = true;
-                }
-
-                lock (gr1)
-                    gr1.FillEllipse(Brushes.Green, phil.phil4.X, phil.phil4.Y, 50, 50);
-                Thread.Sleep(2000);
-
-                lock (thisLock)
-                {
-                    phil.Forks[3] = false;
-                }
-
-                lock (thisLock)
-                {
-                    phil.Forks[2] = false;
-                }
-
-                lock (gr1)
-                    gr1.FillEllipse(Brushes.Yellow, phil.phil4.X, phil.phil4.Y, 50, 50);
-                Thread.Sleep(2000);
-
-                lock (gr1)
-                    gr1.FillEllipse(Brushes.Red, phil.phil4.X, phil.phil4.Y, 50, 50);
-            }
-        }
-
-        public static void Phil5(Object x)
-        {
-            Philosophers phil = (Philosophers)x;
-            Object thisLock = new Object();
-            while (true)
-            {
-                while (phil.Forks[3]) ;
-                lock (thisLock)
-                {
-                    phil.Forks[3] = true;
-                }
-
-                while (phil.Forks[4]) ;
-                lock (thisLock)
-                {
-                    phil.Forks[4] = true;
-                }
-
-                lock (gr1)
-                    gr1.FillEllipse(Brushes.Green, phil.phil5.X, phil.phil5.Y, 50, 50);
-                Thread.Sleep(2000);
-
-                lock (thisLock)
-                {
-                    phil.Forks[3] = false;
-                }
-
-                lock (thisLock)
-                {
-                    phil.Forks[4] = false;
-                }
-
-                lock (gr1)
-                    gr1.FillEllipse(Brushes.Yellow, phil.phil5.X, phil.phil5.Y, 50, 50);
-                Thread.Sleep(2000);
-
-                lock (gr1)
-                    gr1.FillEllipse(Brushes.Red, phil.phil5.X, phil.phil5.Y, 50, 50);
-            }
-        }
-
-        // Stop dining.
-        private void button2_Click(object sender, EventArgs e)
-        {
-            ph1.Abort();
-            ph2.Abort();
-            ph3.Abort();
-            ph4.Abort();
-            ph5.Abort();
-        }
-    }
-
-    class Philosophers
-    {
-        public Point phil1 = new Point(406 / 2 - 25, 274 / 2 - 110);
-        public Point phil2 = new Point(406 / 2 + 55, 274 / 2 - 50);
-        public Point phil3 = new Point(406 / 2 + 35, 274 / 2 + 40);
-        public Point phil4 = new Point(406 / 2 - 80, 274 / 2 + 40);
-        public Point phil5 = new Point(406 / 2 - 100, 274 / 2 - 50);
-
-        public bool[] Forks = new bool[5];
     }
 }
